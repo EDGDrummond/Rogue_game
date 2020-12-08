@@ -111,6 +111,13 @@ impl Object {
                 fighter.hp -= damage;
             }
         }
+        // checks for death and calls death function if need be
+        if let Some(fighter) = self.fighter {
+            if fighter.hp <= 0 {
+                self.alive = false;
+                fighter.on_death.callback(self);
+            }
+        }
     }
 
     pub fn attack(&mut self, target: &mut Object) {
@@ -130,6 +137,27 @@ impl Object {
             );
         }
     }
+}
+
+fn player_death(player: &mut Object) {
+    // the game ended!
+    println!("You died!!");
+
+    // for added effect, turn the player into a corpse!
+    player.char = '%';
+    player.color = DARK_RED;
+}
+
+fn monster_death(monster: &mut Object) {
+    // turn it into a nasty corpse! it doesn't block things,
+    // can't be attacked and doesn't move
+    println!("{} is dead!", monster.name);
+    monster.char = '%';
+    monster.color = DARK_RED;
+    monster.blocks = false;
+    monster.fighter = None;
+    monster.ai = None;
+    monster.name = format!("remains of {}", monster.name);
 }
 
 /// Mutably borrow two separate elements from the given slice.
@@ -194,7 +222,26 @@ struct Fighter {
     hp: i32,
     defense: i32,
     power: i32,
+    on_death: DeathCallBack,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DeathCallBack {
+    Player,
+    Monster,
+}
+
+impl DeathCallBack {
+    fn callback(self, object: &mut Object) {
+        use DeathCallBack::*;
+        let callback: fn(&mut Object) = match self {
+            Player => player_death,
+            Monster => monster_death,
+        };
+        callback(object);
+    }
+}
+
 
 #[derive(Clone, Debug, PartialEq)]
 enum Ai {
@@ -321,6 +368,7 @@ fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 hp: 10,
                 defense: 0,
                 power: 3,
+                on_death: DeathCallBack::Monster,
             });
             orc.ai = Some(Ai::Basic);
             orc
@@ -331,6 +379,7 @@ fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 hp: 16,
                 defense: 1,
                 power: 4,
+                on_death: DeathCallBack::Monster,
             });
             troll.ai = Some(Ai::Basic);
             troll
@@ -341,6 +390,7 @@ fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 hp: 20,
                 defense: 2,
                 power: 2,
+                on_death: DeathCallBack::Monster,
             });
             elf.ai = Some(Ai::Basic);
             elf
@@ -384,7 +434,9 @@ fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) 
     let y = objects[PLAYER].y + dy;
 
     // try to find an attackable object there
-    let target_id = objects.iter().position(|objects| objects.pos() == (x, y));
+    let target_id = objects
+        .iter()
+        .position(|object| object.fighter.is_some() && object.pos() == (x, y));
 
     // attack if target found, move otherwise
     match target_id {
@@ -438,14 +490,20 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
         }
     }
 
-    // draw all objects in the list
-    for object in objects {
+    let mut to_draw: Vec<_> = objects
+        .iter()
+        .filter(|o| tcod.fov.is_in_fov(o.x, o.y))
+        .collect();
+    // sort so that non-blocking objects come first
+    to_draw.sort_by(|o1, o2| { o1.blocks.cmp(&o2.blocks) });
+    // draw the objects in the list
+    for object in &to_draw {
         if tcod.fov.is_in_fov(object.x, object.y) {
             object.draw(&mut tcod.con);
         }
     }
 
-    // blit th contents of "con" to the root console and present it
+    // blit the contents of "con" to the root console and present it
     blit(
         &tcod.con,
         (0,0),
@@ -604,6 +662,7 @@ fn main() {
         hp: 30,
         defense: 2,
         power: 5,
+        on_death: DeathCallBack::Player,
     });
     // let npc = Object::new(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', YELLOW);
     let mut objects = vec![player];
