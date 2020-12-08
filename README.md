@@ -5,8 +5,11 @@ This symbol represents you, the player. You can move around with the arrow keys 
 When you move other creatures can move too, and if they are not friendly (most of them are not), and
 they will move towards you to attack you. Moving towards them will attack them.
 
-Orcs are the most abundant creature and they are relatively weakl; elves are less abundant and also fairly
-weak; troll are as abundant as elfs, but trolls are much stronger - be careful.
+Orcs are the most abundant creature and they are relatively weak; elves are less abundant and also fairly
+weak; trolls are as abundant as elfs, but trolls are much stronger - be careful.
+
+Alt + Enter: Go fullscreen
+Esc: Exit the game
 
 See if you can explore the whole maze and defeat all the creatures.
 
